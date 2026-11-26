@@ -954,3 +954,730 @@ function SurveyWorkspace({ survey, onBack }) {
 
             <div className="flex flex-wrap gap-2 mb-3">
               {GUIDE_TEMPLATES.map((tpl) => (
+                <button
+                  key={tpl.label}
+                  type="button"
+                  onClick={() => setInterpretation((prev) => prev + tpl.text)}
+                  className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold px-3 py-1.5 rounded-lg border border-indigo-200"
+                >
+                  + {tpl.label} 문장 넣기
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              rows={5}
+              placeholder="자료 해석 내용을 작성해 주세요..."
+              value={interpretation}
+              onChange={(e) => setInterpretation(e.target.value)}
+              className="w-full border border-slate-300 rounded-xl p-3.5 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleSaveAnalysis}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-2.5 rounded-xl text-sm"
+                >
+                  해석 내용 저장하기
+                </button>
+                {savedNotice && (
+                  <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="w-4 h-4" /> 저장 완료!
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white font-semibold px-5 py-2.5 rounded-xl text-sm"
+              >
+                <Printer className="w-4 h-4" /> 보고서 인쇄 / PDF
+              </button>
+            </div>
+          </div>
+
+          {/* 인쇄용 최종 보고서 */}
+          <div className="bg-white rounded-2xl border-2 border-slate-300 p-8 shadow-sm">
+            <div className="border-b-2 border-slate-800 pb-4 mb-6 flex justify-between items-end">
+              <div>
+                <p className="text-xs font-bold text-indigo-600 mb-1">
+                  중학교 1학년 수학 통계 수행평가 보고서 ({survey.className || '1반'})
+                </p>
+                <h2 className="text-2xl font-extrabold text-slate-900">{survey.topic}</h2>
+              </div>
+              <div className="text-right text-sm">
+                <p className="font-bold">{survey.groupName}</p>
+                <p className="text-slate-600">{survey.members}</p>
+              </div>
+            </div>
+
+            {stats && (
+              <div className="grid grid-cols-4 gap-3 mb-6">
+                <StatBox label="총 조사 인원" value={`${stats.n}명`} />
+                <StatBox label="평균" value={`${stats.mean} ${survey.unit}`} />
+                <StatBox label="중앙값" value={`${stats.median} ${survey.unit}`} />
+                <StatBox label="최빈값" value={stats.modeText} />
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div>
+                <h4 className="font-bold text-sm mb-2">1. 도수분포표</h4>
+                <table className="w-full text-xs text-center border border-slate-400">
+                  <thead className="bg-slate-100 font-bold border-b border-slate-400">
+                    <tr>
+                      <th className="py-2 border-r border-slate-400">계급 ({survey.unit})</th>
+                      <th className="py-2 border-r border-slate-400">계급값</th>
+                      <th className="py-2 border-r border-slate-400">도수</th>
+                      <th className="py-2">상대도수</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-300">
+                    {freqTable.map((r, i) => (
+                      <tr key={i}>
+                        <td className="py-1.5 border-r border-slate-400">{r.min} ~ {r.max}</td>
+                        <td className="py-1.5 border-r border-slate-400">{r.mid}</td>
+                        <td className="py-1.5 border-r border-slate-400 font-bold">{r.count}</td>
+                        <td className="py-1.5">{r.relFreq.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-sm mb-2">2. 히스토그램 및 도수분포다각형</h4>
+                <HistogramChart rows={freqTable} unit={survey.unit} showHist={true} showPoly={true} />
+              </div>
+            </div>
+
+            <div>
+              <h4 className="font-bold text-sm mb-2">3. 모둠 자료 해석 및 결론</h4>
+              <div className="min-h-[120px] border border-slate-300 rounded-xl p-4 bg-slate-50 text-sm whitespace-pre-wrap leading-relaxed">
+                {interpretation || '작성된 자료 해석 내용이 없습니다.'}
+              </div>
+            </div>
+          </div>
+
+          {/* 다른 모둠 상호 피드백 */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 no-print">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-bold text-base flex items-center gap-1.5">
+                <MessageSquare className="w-4 h-4 text-indigo-600" /> 우리 반 친구들의 피드백
+              </h4>
+              <button
+                onClick={handleAddLike}
+                className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold px-3.5 py-1.5 rounded-full text-xs transition"
+              >
+                <Heart className="w-4 h-4 fill-rose-500" /> 좋아요 {survey.likes || 0}
+              </button>
+            </div>
+            <form onSubmit={handleAddComment} className="flex gap-2 mb-4">
+              <input
+                type="text"
+                placeholder="발표 소감이나 자료 해석에 대한 피드백을 남겨주세요..."
+                value={commentInput}
+                onChange={(e) => setCommentInput(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+              />
+              <button type="submit" className="bg-slate-800 text-white font-semibold px-4 py-2 rounded-lg text-sm shrink-0">
+                등록
+              </button>
+            </form>
+            <div className="space-y-2">
+              {(survey.comments || []).map((c, i) => (
+                <div key={i} className="bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-700">
+                  {c}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 탭 5: 개인별 평가 및 자동 채점 퀴즈 */}
+      {activeTab === 'individual' && (
+        <IndividualEvaluationTab
+          survey={survey}
+          stats={stats}
+          freqTable={freqTable}
+        />
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   개인별 평가 & 우리 모둠 데이터 기반 맞춤형 퀴즈 자동 채점
+   ========================================================= */
+function IndividualEvaluationTab({ survey, stats, freqTable }) {
+  const [stuId, setStuId] = useState('');
+  const [stuName, setStuName] = useState('');
+  const [roleText, setRoleText] = useState('');
+  const [personalInsight, setPersonalInsight] = useState('');
+  const [peerLevel, setPeerLevel] = useState('상');
+
+  const [ansMedian, setAnsMedian] = useState('');
+  const [ansMaxClassMin, setAnsMaxClassMin] = useState('');
+  const [ansMaxRelFreq, setAnsMaxRelFreq] = useState('');
+
+  if (!stats || freqTable.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center text-slate-500 text-sm">
+        먼저 설문 자료를 3개 이상 수집하고 도수분포표를 완성한 뒤에 개인별 평가를 진행할 수 있습니다.
+      </div>
+    );
+  }
+
+  const correctMedian = Number(stats.median);
+  const maxRow = freqTable.reduce((best, r) => (r.count > best.count ? r : best), freqTable[0]);
+  const correctMaxClassMin = Number(maxRow.min);
+  const correctMaxRelFreq = Number(maxRow.relFreq.toFixed(2));
+
+  const handleSubmitIndividual = async (e) => {
+    e.preventDefault();
+    const cleanId = stuId.trim();
+    const cleanName = stuName.trim();
+    if (!cleanId || !cleanName || !roleText.trim() || !personalInsight.trim()) return;
+
+    let quizScore = 0;
+    if (Math.abs(Number(ansMedian) - correctMedian) < 0.05) quizScore += 10;
+    if (Number(ansMaxClassMin) === correctMaxClassMin) quizScore += 10;
+    if (Math.abs(Number(ansMaxRelFreq) - correctMaxRelFreq) < 0.02) quizScore += 10;
+
+    const peerScore = peerLevel === '상' ? 20 : peerLevel === '중' ? 16 : 12;
+
+    const subs = survey.individualSubmissions || [];
+    const filtered = subs.filter((item) => item.studentId !== cleanId);
+
+    const newRecord = {
+      studentId: cleanId,
+      studentName: cleanName,
+      roleText: roleText.trim(),
+      personalInsight: personalInsight.trim(),
+      peerLevel,
+      peerScore,
+      quizScore,
+      submittedAt: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    await updateDoc(doc(db, 'surveys', survey.id), {
+      individualSubmissions: [...filtered, newRecord],
+    });
+
+    alert(
+      `${cleanName} 학생 제출 완료!\n• 맞춤형 통계 퀴즈 점수: ${quizScore} / 30점\n• 참여도 점수: ${peerScore} / 20점\n(모둠 공통 산출물 50점과 합산되어 최종 성적이 산출됩니다)`
+    );
+    setStuId('');
+    setStuName('');
+    setRoleText('');
+    setPersonalInsight('');
+    setAnsMedian('');
+    setAnsMaxClassMin('');
+    setAnsMaxRelFreq('');
+  };
+
+  const submissions = survey.individualSubmissions || [];
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6">
+        <h3 className="font-bold text-lg mb-1">개인별 수행평가 제출 (개인 점수 산출용)</h3>
+        <p className="text-xs text-slate-500 mb-5">
+          우리 모둠이 조사한 실제 데이터를 바탕으로 아래 문제를 풀고 본인의 활동 내용을 제출하세요.
+        </p>
+
+        <form onSubmit={handleSubmitIndividual} className="space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-bold mb-1">학번 *</label>
+              <input
+                type="text"
+                required
+                placeholder="예: 10105"
+                value={stuId}
+                onChange={(e) => setStuId(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold mb-1">이름 *</label>
+              <input
+                type="text"
+                required
+                placeholder="예: 홍길동"
+                value={stuName}
+                onChange={(e) => setStuName(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold mb-1">모둠 기여도 평가</label>
+              <select
+                value={peerLevel}
+                onChange={(e) => setPeerLevel(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
+              >
+                <option value="상">상 (적극 참여 · 20점)</option>
+                <option value="중">중 (보통 참여 · 16점)</option>
+                <option value="하">하 (소극 참여 · 12점)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl p-4 space-y-3">
+            <h4 className="font-bold text-sm text-indigo-900">
+              [자동 채점 30점] 우리 모둠 데이터 이해도 확인 퀴즈
+            </h4>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Q1. 우리 모둠이 수집한 전체 자료({stats.n}개)의 중앙값은 얼마인가요? (숫자만 입력)
+              </label>
+              <input
+                type="number"
+                step="any"
+                required
+                placeholder={`단위(${survey.unit}) 제외 숫자만 입력`}
+                value={ansMedian}
+                onChange={(e) => setAnsMedian(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Q2. 도수분포표에서 도수가 가장 큰 계급의 '시작값(이상)'은 얼마인가요?
+              </label>
+              <input
+                type="number"
+                step="any"
+                required
+                placeholder="예: 30 이상 40 미만이면 30 입력"
+                value={ansMaxClassMin}
+                onChange={(e) => setAnsMaxClassMin(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Q3. 도수가 가장 큰 계급의 상대도수는 얼마인가요? (소수 둘째 자리까지)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                required
+                placeholder="예: 0.35"
+                value={ansMaxRelFreq}
+                onChange={(e) => setAnsMaxRelFreq(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold mb-1">내가 맡은 역할 및 구체적 활동 내용 *</label>
+            <input
+              type="text"
+              required
+              placeholder="예: 설문 문항 제작, 친구들 응답 수집 및 도수분포표 계급 크기 설정 담당"
+              value={roleText}
+              onChange={(e) => setRoleText(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold mb-1">개인 소감 및 내가 발견한 통계적 사실 1가지 *</label>
+            <textarea
+              rows={3}
+              required
+              placeholder="모둠 활동에서 본인이 직접 해석한 통계적 특징이나 느낀 점을 적어주세요."
+              value={personalInsight}
+              onChange={(e) => setPersonalInsight(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg p-3 text-sm"
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-sm shadow-sm"
+          >
+            개인별 평가 제출하고 점수 확인하기
+          </button>
+        </form>
+      </div>
+
+      {/* 제출 완료 학생 목록 */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-5">
+        <h4 className="font-bold text-base mb-1">개인별 제출 현황 ({submissions.length}명)</h4>
+        <p className="text-xs text-slate-500 mb-4">동일 학번으로 다시 제출하면 최신 점수로 덮어씁니다.</p>
+        {submissions.length === 0 ? (
+          <p className="text-center py-12 text-slate-400 text-xs">아직 제출한 학생이 없습니다.</p>
+        ) : (
+          <div className="space-y-2.5">
+            {submissions.map((sub) => (
+              <div key={sub.studentId} className="border border-slate-200 rounded-xl p-3 bg-slate-50">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-bold text-sm">{sub.studentId} {sub.studentName}</span>
+                  <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">
+                    개인점수 {sub.quizScore + sub.peerScore} / 50점
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600">역할: {sub.roleText}</p>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  퀴즈 {sub.quizScore}점 · 참여도 {sub.peerScore}점 ({sub.submittedAt} 제출)
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   교사 관리자 채점 및 개인별 성적표 CSV 다운로드 대시보드
+   ========================================================= */
+function TeacherDashboard({ selectedClass, surveys }) {
+  const handleRubricChange = async (survey, key, val) => {
+    const nextRubric = {
+      ...(survey.rubric || { table: 20, graph: 15, analysis: 15 }),
+      [key]: Number(val),
+    };
+    await updateDoc(doc(db, 'surveys', survey.id), {
+      rubric: nextRubric,
+    });
+  };
+
+  const allStudentRows = useMemo(() => {
+    const rows = [];
+    surveys.forEach((s) => {
+      const r = s.rubric || { table: 20, graph: 15, analysis: 15 };
+      const groupScore = Number(r.table) + Number(r.graph) + Number(r.analysis);
+      const subs = s.individualSubmissions || [];
+      subs.forEach((sub) => {
+        const total = groupScore + Number(sub.quizScore) + Number(sub.peerScore);
+        rows.push({
+          className: s.className || '1반',
+          groupName: s.groupName,
+          topic: s.topic,
+          studentId: sub.studentId,
+          studentName: sub.studentName,
+          groupScore,
+          quizScore: sub.quizScore,
+          peerScore: sub.peerScore,
+          totalScore: total,
+          roleText: sub.roleText,
+          personalInsight: sub.personalInsight,
+        });
+      });
+    });
+    return rows.sort((a, b) => a.studentId.localeCompare(b.studentId));
+  }, [surveys]);
+
+  const handleDownloadCsv = () => {
+    const headers = [
+      '반',
+      '학번',
+      '이름',
+      '소속모둠',
+      '조사주제',
+      '모둠산출물(50)',
+      '개인퀴즈(30)',
+      '참여도(20)',
+      '최종총점(100)',
+      '담당역할',
+      '개인통계해석',
+    ];
+    const csvLines = [
+      headers.join(','),
+      ...allStudentRows.map((row) =>
+        [
+          row.className,
+          row.studentId,
+          row.studentName,
+          `"${row.groupName}"`,
+          `"${row.topic.replace(/"/g, '""')}"`,
+          row.groupScore,
+          row.quizScore,
+          row.peerScore,
+          row.totalScore,
+          `"${row.roleText.replace(/"/g, '""')}"`,
+          `"${row.personalInsight.replace(/"/g, '""')}"`,
+        ].join(',')
+      ),
+    ];
+
+    const blob = new Blob(['\uFEFF' + csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `중1_통계수행평가_성적표_${selectedClass}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900">[{selectedClass}] 교사 채점 및 성적 산출 패널</h2>
+          <p className="text-xs text-slate-600">
+            모둠 공통 산출물(50점)을 채점하면 학생들의 개인 퀴즈(30점)·참여도(20점)와 자동 합산되어 100점 만점 성적표가 완성됩니다.
+          </p>
+        </div>
+        <button
+          onClick={handleDownloadCsv}
+          className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-sm"
+        >
+          <Download className="w-4 h-4" /> 엑셀(CSV) 성적표 다운로드
+        </button>
+      </div>
+
+      {/* 1. 모둠별 루브릭 채점 */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-5">
+        <h3 className="font-bold text-base mb-4">1단계: 모둠별 산출물 루브릭 채점 (총 50점)</h3>
+        {surveys.length === 0 ? (
+          <p className="text-sm text-slate-400">해당 반에 생성된 모둠이 없습니다.</p>
+        ) : (
+          <div className="space-y-3">
+            {surveys.map((s) => {
+              const r = s.rubric || { table: 20, graph: 15, analysis: 15 };
+              const groupTotal = Number(r.table) + Number(r.graph) + Number(r.analysis);
+              return (
+                <div key={s.id} className="border border-slate-200 rounded-xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-indigo-700">{s.groupName}</span>
+                      <span className="text-xs text-slate-500">({s.members})</span>
+                    </div>
+                    <p className="text-sm font-medium text-slate-800">{s.topic}</p>
+                    <p className="text-xs text-slate-500 mt-1">해석 요약: {s.interpretation || '미작성'}</p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 text-xs">
+                    <div>
+                      <span className="block text-slate-500 mb-1">도수분포표(20)</span>
+                      <select
+                        value={r.table}
+                        onChange={(e) => handleRubricChange(s, 'table', e.target.value)}
+                        className="border border-slate-300 rounded px-2 py-1 font-bold"
+                      >
+                        <option value={20}>상 (20점)</option>
+                        <option value={16}>중 (16점)</option>
+                        <option value={12}>하 (12점)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <span className="block text-slate-500 mb-1">그래프(15)</span>
+                      <select
+                        value={r.graph}
+                        onChange={(e) => handleRubricChange(s, 'graph', e.target.value)}
+                        className="border border-slate-300 rounded px-2 py-1 font-bold"
+                      >
+                        <option value={15}>상 (15점)</option>
+                        <option value={12}>중 (12점)</option>
+                        <option value={9}>하 (9점)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <span className="block text-slate-500 mb-1">자료해석(15)</span>
+                      <select
+                        value={r.analysis}
+                        onChange={(e) => handleRubricChange(s, 'analysis', e.target.value)}
+                        className="border border-slate-300 rounded px-2 py-1 font-bold"
+                      >
+                        <option value={15}>상 (15점)</option>
+                        <option value={12}>중 (12점)</option>
+                        <option value={9}>하 (9점)</option>
+                      </select>
+                    </div>
+                    <div className="bg-indigo-50 text-indigo-800 font-extrabold px-3 py-2 rounded-lg text-sm">
+                      모둠점수: {groupTotal}점
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 2. 개인별 최종 성적 일람표 */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-5">
+        <h3 className="font-bold text-base mb-3">2단계: 개인별 최종 합산 성적표 ({allStudentRows.length}명)</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-center border border-slate-300">
+            <thead className="bg-slate-100 font-bold border-b border-slate-300">
+              <tr>
+                <th className="py-2.5 px-2 border-r border-slate-300">학번</th>
+                <th className="py-2.5 px-2 border-r border-slate-300">이름</th>
+                <th className="py-2.5 px-2 border-r border-slate-300">모둠</th>
+                <th className="py-2.5 px-2 border-r border-slate-300">모둠점수(50)</th>
+                <th className="py-2.5 px-2 border-r border-slate-300">개인퀴즈(30)</th>
+                <th className="py-2.5 px-2 border-r border-slate-300">참여도(20)</th>
+                <th className="py-2.5 px-2 bg-indigo-50 text-indigo-800">최종총점(100)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {allStudentRows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-slate-400">
+                    아직 [5. 개인별 평가]를 제출한 학생이 없습니다.
+                  </td>
+                </tr>
+              ) : (
+                allStudentRows.map((row) => (
+                  <tr key={row.studentId} className="hover:bg-slate-50">
+                    <td className="py-2 border-r border-slate-300 font-medium">{row.studentId}</td>
+                    <td className="py-2 border-r border-slate-300 font-bold">{row.studentName}</td>
+                    <td className="py-2 border-r border-slate-300">{row.groupName}</td>
+                    <td className="py-2 border-r border-slate-300">{row.groupScore}</td>
+                    <td className="py-2 border-r border-slate-300">{row.quizScore}</td>
+                    <td className="py-2 border-r border-slate-300">{row.peerScore}</td>
+                    <td className="py-2 font-extrabold text-indigo-700 bg-indigo-50/40">{row.totalScore}점</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   공통 UI 컴포넌트
+   ========================================================= */
+function TabBtn({ active, onClick, icon, label }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+        active
+          ? 'bg-indigo-600 text-white shadow-sm'
+          : 'text-slate-600 hover:bg-white/70'
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function StatBox({ label, value }) {
+  return (
+    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+      <p className="text-xs text-slate-500 mb-0.5">{label}</p>
+      <p className="font-bold text-slate-800 text-sm">{value}</p>
+    </div>
+  );
+}
+
+function HistogramChart({ rows, unit, showHist, showPoly }) {
+  if (!rows || rows.length === 0) {
+    return <div className="py-16 text-center text-slate-400 text-sm">표시할 데이터가 없습니다.</div>;
+  }
+
+  const maxCount = Math.max(...rows.map((r) => r.count), 1);
+  const yMax = Math.ceil((maxCount + 1) / 2) * 2;
+
+  const width = 460;
+  const height = 260;
+  const padL = 42;
+  const padR = 24;
+  const padT = 24;
+  const padB = 42;
+
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+
+  const totalSlots = rows.length + 2;
+  const slotW = plotW / totalSlots;
+
+  const getY = (val) => padT + plotH - (val / yMax) * plotH;
+
+  const polyPoints = [
+    { x: padL + slotW * 0.5, y: getY(0) },
+    ...rows.map((r, i) => ({
+      x: padL + slotW * (i + 1.5),
+      y: getY(r.count),
+    })),
+    { x: padL + slotW * (rows.length + 1.5), y: getY(0) },
+  ];
+
+  const polyPath = polyPoints.map((p) => `${p.x},${p.y}`).join(' ');
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto border border-slate-200 rounded-xl bg-white">
+      {Array.from({ length: yMax + 1 }).map((_, val) => {
+        if (yMax > 10 && val % 2 !== 0) return null;
+        const y = getY(val);
+        return (
+          <g key={val}>
+            <line x1={padL} y1={y} x2={width - padR} y2={y} stroke="#e2e8f0" strokeWidth="1" />
+            <text x={padL - 8} y={y + 4} textAnchor="end" fontSize="10" fill="#64748b">
+              {val}
+            </text>
+          </g>
+        );
+      })}
+
+      {showHist &&
+        rows.map((r, i) => {
+          const x = padL + slotW * (i + 1);
+          const y = getY(r.count);
+          const barH = padT + plotH - y;
+          return (
+            <rect
+              key={i}
+              x={x}
+              y={y}
+              width={slotW}
+              height={barH}
+              fill="rgba(99, 102, 241, 0.28)"
+              stroke="#4f46e5"
+              strokeWidth="1.5"
+            />
+          );
+        })}
+
+      {showPoly && (
+        <>
+          <polyline fill="none" stroke="#e11d48" strokeWidth="2.5" points={polyPath} />
+          {polyPoints.map((p, i) => (
+            <circle key={i} cx={p.x} cy={p.y} r="3.5" fill="#e11d48" />
+          ))}
+        </>
+      )}
+
+      <line x1={padL} y1={padT} x2={padL} y2={padT + plotH} stroke="#334155" strokeWidth="1.5" />
+      <line x1={padL} y1={padT + plotH} x2={width - padR} y2={padT + plotH} stroke="#334155" strokeWidth="1.5" />
+
+      {rows.map((r, i) => {
+        const x = padL + slotW * (i + 1);
+        return (
+          <text key={i} x={x} y={padT + plotH + 16} textAnchor="middle" fontSize="10" fill="#334155">
+            {r.min}
+          </text>
+        );
+      })}
+      <text
+        x={padL + slotW * (rows.length + 1)}
+        y={padT + plotH + 16}
+        textAnchor="middle"
+        fontSize="10"
+        fill="#334155"
+      >
+        {rows[rows.length - 1].max}
+      </text>
+
+      <text x={padL - 8} y={14} textAnchor="end" fontSize="10" fontWeight="bold" fill="#334155">
+        (명)
+      </text>
+      <text x={width - 8} y={padT + plotH + 30} textAnchor="end" fontSize="10" fontWeight="bold" fill="#334155">
+        ({unit})
+      </text>
+    </svg>
+  );
+}
