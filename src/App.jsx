@@ -115,7 +115,6 @@ export default function App() {
     return () => { unsub1(); unsub2(); };
   }, []);
 
-  // 교사 계정 초기화 시 강제 로그아웃 감지
   useEffect(() => {
     if (!currentUser) return;
     const resets = classSettings[currentUser.className]?.resetStudents || [];
@@ -150,7 +149,6 @@ export default function App() {
       return setLoginError(`${parsed.className} 최대 정원(${MAX_CLASS_STUDENTS}명)이 초과되었습니다.`);
     }
 
-    // 초기화 목록에 있었다면 해제
     const resets = classSettings[parsed.className]?.resetStudents || [];
     if (resets.includes(parsed.studentId)) {
       await setDoc(doc(db, 'classSettings', parsed.className), {
@@ -446,6 +444,53 @@ export default function App() {
   );
 }
 
+/* =========================================================
+   원 자료 상단 참고 패널 (2번 줄기와 잎, 3번 표·그래프 탭 공통 표시)
+   ========================================================= */
+function RawDataReferencePanel({ entries, unit }) {
+  const [sortAsc, setSortAsc] = useState(true);
+  if (!entries || entries.length === 0) return null;
+
+  const list = useMemo(() => {
+    const arr = entries.map((e) => Number(e.value));
+    return sortAsc ? arr.sort((a, b) => a - b) : arr;
+  }, [entries, sortAsc]);
+
+  return (
+    <div className="bg-slate-100/90 border border-slate-300 rounded-2xl p-4 mb-5 no-print">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-extrabold bg-slate-800 text-white px-2.5 py-0.5 rounded">
+            📋 수집된 원 자료 ({entries.length}명)
+          </span>
+          <span className="text-xs text-slate-500">아래 수치를 보며 표와 그래프를 완성하세요</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setSortAsc(!sortAsc)}
+          className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition ${
+            sortAsc
+              ? 'bg-indigo-600 text-white border-indigo-600'
+              : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+          }`}
+        >
+          {sortAsc ? '✓ 작은 값부터 정렬됨' : '입력 순서대로 보기'}
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {list.map((val, i) => (
+          <span
+            key={i}
+            className="bg-white border border-slate-300 px-2.5 py-1 rounded-lg text-xs font-extrabold text-slate-800 shadow-2xs"
+          >
+            {val}{unit}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SurveyWorkspace({ survey, classSurveys, currentUser, currentPhase, myTotalAnswered, onBack }) {
   const [activeTab, setActiveTab] = useState('vote');
   const [singleVal, setSingleVal] = useState('');
@@ -630,11 +675,15 @@ function SurveyWorkspace({ survey, classSurveys, currentUser, currentPhase, myTo
       )}
 
       {activeTab === 'stem' && (
-        <StemSection survey={survey} stemAndLeaf={stemAndLeaf} isMember={isMember} isCompleted={!!missionStatus.stem} onComplete={() => handleCompleteMission('stem')} />
+        <div>
+          <RawDataReferencePanel entries={entries} unit={survey.unit} />
+          <StemSection survey={survey} stemAndLeaf={stemAndLeaf} isMember={isMember} isCompleted={!!missionStatus.stem} onComplete={() => handleCompleteMission('stem')} />
+        </div>
       )}
 
       {activeTab === 'freq' && (
         <div className="space-y-6">
+          <RawDataReferencePanel entries={entries} unit={survey.unit} />
           {isMember && (
             <div className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-wrap items-end justify-between gap-4">
               <div className="flex flex-wrap items-end gap-4">
